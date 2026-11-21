@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Apple, X } from "lucide-react";
+import { X } from "lucide-react";
 
 export default function AuthModal({ initialData, onClose, onAuthenticated }) {
   const [mode, setMode] = useState("login");
@@ -8,7 +8,7 @@ export default function AuthModal({ initialData, onClose, onAuthenticated }) {
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [providers, setProviders] = useState({});
+  const [, setProviders] = useState({});
   const isRegistering = mode === "register";
 
   useEffect(() => {
@@ -50,6 +50,7 @@ export default function AuthModal({ initialData, onClose, onAuthenticated }) {
       setSubmitting(false);
     }
   };
+  void handleSocialLogin;
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -99,10 +100,17 @@ export default function AuthModal({ initialData, onClose, onAuthenticated }) {
       >
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold" id="account-dialog-title">
+            <h2
+              className="text-2xl font-bold"
+              id="account-dialog-title"
+              style={{ color: "#654321" }}
+            >
               {isRegistering ? "Create your account" : "Log in"}
             </h2>
-            <p className="mt-1 text-sm text-stone-600">
+            <p
+              className="mt-1 text-sm"
+              style={{ color: "#654321" }}
+            >
               {isRegistering
                 ? "Your current bookshelf will be saved to your account."
                 : "Log in to load your bookshelf from your account."}
@@ -167,50 +175,10 @@ export default function AuthModal({ initialData, onClose, onAuthenticated }) {
           </button>
         </form>
 
-        <div className="my-5 flex items-center gap-3 text-xs text-stone-500">
-          <span className="h-px flex-1 bg-stone-200" />
-          or continue with
-          <span className="h-px flex-1 bg-stone-200" />
-        </div>
-        <div className="grid gap-2">
-          <button
-            className="flex w-full items-center justify-center gap-2 rounded-md border border-stone-300 px-3 py-2 text-sm font-medium hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!providers.google || submitting}
-            onClick={() => handleSocialLogin("google")}
-            type="button"
-          >
-            <span aria-hidden="true" className="font-bold text-blue-600">G</span>
-            Continue with Google
-          </button>
-          <button
-            className="flex w-full items-center justify-center gap-2 rounded-md border border-stone-300 px-3 py-2 text-sm font-medium hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!providers.apple || submitting}
-            onClick={() => handleSocialLogin("apple")}
-            type="button"
-          >
-            <Apple aria-hidden="true" className="h-4 w-4" />
-            Continue with Apple
-          </button>
-          <button
-            className="flex w-full items-center justify-center gap-2 rounded-md border border-stone-300 px-3 py-2 text-sm font-medium hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!providers.facebook || submitting}
-            onClick={() => handleSocialLogin("facebook")}
-            type="button"
-          >
-            <span aria-hidden="true" className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-700 text-xs font-bold text-white">f</span>
-            Continue with Facebook
-          </button>
-        </div>
-        {!providers.google && !providers.apple && !providers.facebook && (
-          <p className="mt-3 text-center text-xs text-stone-500">
-            Social sign-in is unavailable until provider credentials are configured.
-          </p>
-        )}
-
         <p className="mt-5 text-center text-sm text-stone-600">
           {isRegistering ? "Already have an account?" : "New to the bookshelf?"}{" "}
           <button
-            className="font-medium text-stone-900 underline underline-offset-2"
+            className="font-medium text-stone-900"
             onClick={() => {
               setMode(isRegistering ? "login" : "register");
               setError("");

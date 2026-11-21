@@ -107,7 +107,7 @@ export default function BookshelfHeader({
         <Button
           variant="ghost"
           size="sm"
-          className={actionClassName}
+          className={`${actionClassName} text-[#654321]`}
           onClick={() => fileInputRef.current?.click()}
           title="Import your Goodreads library CSV"
         >
@@ -149,6 +149,7 @@ export default function BookshelfHeader({
             className={actionClassName}
             onClick={onLoginClick}
             disabled={accountDisabled}
+            style={{ color: "#654321" }}
           >
             <LogIn className="h-4 w-4" />
             Log in
