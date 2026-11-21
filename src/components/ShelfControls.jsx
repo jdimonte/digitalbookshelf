@@ -21,8 +21,8 @@ export default function ShelfControls({
             <Slider
               value={[shelfCount]}
               onValueChange={(value) => onShelfCountChange(value[0])}
-              min={1}
-              max={10}
+              min={2}
+              max={5}
               step={1}
             />
           </div>

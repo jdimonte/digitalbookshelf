@@ -14,6 +14,7 @@ import {
   makeItemId,
   DEFAULT_SHELF_HEIGHT,
   MAX_SHELF_HEIGHT,
+  MAX_SHELF_WIDTH,
 } from "./utils/shelfItems";
 import { isOldFormat, migrateToV2, mergeTopShelvesIntoShelves } from "./utils/migrateShelfData";
 import {
@@ -29,9 +30,9 @@ const DEFAULT_THEME = {
   lighting: "warm",
   decorations: true,
   perspective3D: false,
-  shelfWidth: 1200,
-  dividerCount: 0,
-  bookcaseStyle: "modern",
+  shelfWidth: 850,
+  dividerCount: 1,
+  bookcaseStyle: "vintage",
   gradientTopColor: "#8B5A2B",
   gradientBottomColor: "#654321",
   spineColors: DEFAULT_SPINE_COLORS,
@@ -180,7 +181,7 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
   const [shelves, setShelves] = useState([]);
   const [bookMap, setBookMap] = useState({});
   const [shelfCount, setShelfCount] = useState(() =>
-    loadFromLocalStorage("bookshelf-shelfCount", 5),
+    Math.max(2, Math.min(5, loadFromLocalStorage("bookshelf-shelfCount", 3))),
   );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -193,6 +194,9 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
 
   const [theme, setTheme] = useState(() =>
     loadFromLocalStorage("bookshelf-theme", DEFAULT_THEME),
+  );
+  const [displayShelfWidth, setDisplayShelfWidth] = useState(
+    theme.shelfWidth || DEFAULT_THEME.shelfWidth,
   );
 
   const [goodreadsBooks, setGoodreadsBooks] = useState(() =>
@@ -258,7 +262,7 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
           const data = result.data || {};
           savedRaw = data.shelves ?? null;
           oldStackTops = data.stackTops ?? {};
-          setShelfCount(data.shelfCount ?? 5);
+          setShelfCount(Math.max(2, Math.min(5, data.shelfCount ?? 3)));
           loadedTheme = data.theme || DEFAULT_THEME;
           setTheme(loadedTheme);
           setGoodreadsBooks(data.goodreadsBooks || []);
@@ -325,8 +329,8 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
             });
 
           const newShelves = [];
-          for (let i = 0; i < 5; i++) {
-            const shelfBooks = allBooks.slice(i * 5, i * 5 + 5);
+          for (let i = 0; i < 3; i++) {
+            const shelfBooks = allBooks.slice(i * 9, i * 9 + 9);
             newShelves.push({
               id: `shelf-${i}`,
               height: DEFAULT_SHELF_HEIGHT,
@@ -403,15 +407,42 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
   useEffect(() => {
     if (shelves.length === 0) return;
     setShelves((prev) => {
-      if (prev.length === shelfCount) return prev;
-      const next = [...prev];
+      const defaultWidth =
+        (theme.shelfWidth || DEFAULT_THEME.shelfWidth) /
+        Math.max(shelfCount, prev.length, 1);
+      let next = prev;
+      if (theme.name === "bw" && prev.some((shelf) => !Number.isFinite(shelf.width))) {
+        next = prev.map((shelf) =>
+          Number.isFinite(shelf.width) ? shelf : { ...shelf, width: defaultWidth },
+        );
+      }
+      if (next.length === shelfCount && next === prev) return prev;
+      next = [...next];
       while (next.length < shelfCount) {
-        next.push({ id: makeItemId(), items: [], height: DEFAULT_SHELF_HEIGHT });
+        const existingWidths = next
+          .map((shelf) => shelf.width)
+          .filter(Number.isFinite);
+        const width = existingWidths.length
+          ? existingWidths.reduce((sum, value) => sum + value, 0) / existingWidths.length
+          : defaultWidth;
+        next.push({
+          id: makeItemId(),
+          items: [],
+          height: DEFAULT_SHELF_HEIGHT,
+          ...(theme.name === "bw" ? { width } : {}),
+        });
       }
       if (next.length > shelfCount) next.splice(shelfCount);
       return next;
     });
-  }, [shelfCount, shelves.length]);
+  }, [shelfCount, shelves.length, theme.name, theme.shelfWidth]);
+
+  const getShelfContentWidth = (shelfIndex) => {
+    const totalWidth = theme.shelfWidth || DEFAULT_THEME.shelfWidth;
+    return theme.name === "bw"
+      ? shelves[shelfIndex]?.width || totalWidth / Math.max(1, shelves.length)
+      : totalWidth;
+  };
 
   const handleDragStart = (shelfIndex, itemIndex, stackBookId = null) => {
     setDraggedBook({ shelfIndex, itemIndex, stackBookId });
@@ -549,7 +580,7 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
       if (!canFitItemsInShelfSegments(
         testItems,
         bookMap,
-        theme.shelfWidth || 1200,
+        getShelfContentWidth(targetShelfIndex),
         theme.dividerCount || 0,
       )) {
         if (spacers.length > 0) {
@@ -559,7 +590,7 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
           if (!canFitItemsInShelfSegments(
             testNoSlots,
             bookMap,
-            theme.shelfWidth || 1200,
+            getShelfContentWidth(targetShelfIndex),
             theme.dividerCount || 0,
           )) {
             return prev;
@@ -637,7 +668,7 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
           if (canFitItemsInShelfSegments(
             shelf.items,
             bookMap,
-            theme.shelfWidth || 1200,
+            getShelfContentWidth(shelfIndex),
             theme.dividerCount || 0,
           )) return next;
         }
@@ -682,7 +713,7 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
         if (canFitItemsInShelfSegments(
           candidateShelf.items,
           bookMap,
-          theme.shelfWidth || 1200,
+          getShelfContentWidth(shelfIndex),
           theme.dividerCount || 0,
         )) return next;
       }
@@ -690,15 +721,34 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
     });
   };
 
-  const handleResizeShelf = (shelfIndex, newHeight) => {
+  const handleResizeShelf = (
+    shelfIndex,
+    newHeight,
+    maxHeight = MAX_SHELF_HEIGHT,
+  ) => {
     setShelves((prev) => {
       const shelf = prev[shelfIndex];
       if (!shelf) return prev;
       const minHeight = getShelfMinHeight(shelf.items || [], bookMap);
-      const clamped = Math.min(MAX_SHELF_HEIGHT, Math.max(minHeight, newHeight));
+      const clamped = Math.min(
+        Math.max(maxHeight, minHeight),
+        Math.max(minHeight, newHeight),
+      );
       if (clamped === (shelf.height || DEFAULT_SHELF_HEIGHT)) return prev;
       const next = [...prev];
       next[shelfIndex] = { ...shelf, height: clamped };
+      return next;
+    });
+  };
+
+  const handleResizeShelfWidth = (shelfIndex, newWidth) => {
+    setShelves((prev) => {
+      const shelf = prev[shelfIndex];
+      if (!shelf) return prev;
+      const width = Math.min(MAX_SHELF_WIDTH, Math.max(120, Math.round(newWidth)));
+      if (width === (shelf.width || 0)) return prev;
+      const next = [...prev];
+      next[shelfIndex] = { ...shelf, width };
       return next;
     });
   };
@@ -753,7 +803,7 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
     if (!canFitItemsInShelfSegments(
       testItems,
       newBookMap,
-      theme.shelfWidth || 1200,
+      getShelfContentWidth(shelfIndex),
       theme.dividerCount || 0,
     )) {
       return;
@@ -798,7 +848,7 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
       if (!canFitItemsInShelfSegments(
         projected,
         bookMap,
-        theme.shelfWidth || 1200,
+        getShelfContentWidth(shelfIndex),
         theme.dividerCount || 0,
       )) {
         return prev;
@@ -921,6 +971,10 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
         <BookshelfHeader
           shelfCount={shelfCount}
           onShelfCountChange={setShelfCount}
+          shelves={shelves}
+          onShelfWidthChange={handleResizeShelfWidth}
+          bookMap={bookMap}
+          onShelfHeightChange={handleResizeShelf}
           theme={theme}
           onThemeChange={handleThemeChange}
           goodreadsBooks={goodreadsBooks}
@@ -943,7 +997,7 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
           <LoadingState />
         ) : (
           <div
-            className="perspective-1000 flex justify-center"
+            className={`perspective-1000 ${theme.name === "bw" ? "w-full min-w-0 overflow-x-auto" : "flex justify-center"}`}
             style={{
               perspective: theme.perspective3D ? "1000px" : "none",
               transformStyle: "preserve-3d",
@@ -954,6 +1008,7 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
               bookMap={bookMap}
               draggedBook={draggedBook}
               theme={theme}
+              onDisplayWidthChange={setDisplayShelfWidth}
               goodreadsBooks={goodreadsBooks}
               onToggleOrientation={handleToggleOrientation}
               onDragStart={handleDragStart}
@@ -965,6 +1020,7 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
               onRemoveBook={handleRemoveBook}
               onInsertEmptySlot={handleInsertEmptySlot}
               onResizeShelf={handleResizeShelf}
+              onResizeShelfWidth={handleResizeShelfWidth}
             />
           </div>
         )}
@@ -981,13 +1037,13 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
           isVisible={!!draggedBook}
           onDrop={handleTrashZoneDrop}
           side="left"
-          shelfWidth={theme.shelfWidth || 1200}
+          shelfWidth={displayShelfWidth}
         />
         <TrashZone
           isVisible={!!draggedBook}
           onDrop={handleTrashZoneDrop}
           side="right"
-          shelfWidth={theme.shelfWidth || 1200}
+          shelfWidth={displayShelfWidth}
         />
       </div>
     </div>

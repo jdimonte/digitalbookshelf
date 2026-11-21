@@ -34,6 +34,13 @@ test("accepts bookshelf data and rejects invalid persisted state", () => {
     theme: null,
     goodreadsBooks: [],
   });
+  assert.deepEqual(normalizeUserData({}), {
+    shelves: null,
+    stackTops: {},
+    shelfCount: 3,
+    theme: null,
+    goodreadsBooks: [],
+  });
   assert.equal(normalizeUserData({ shelfCount: 0 }), null);
   assert.equal(normalizeUserData(null), null);
 });

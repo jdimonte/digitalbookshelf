@@ -7,6 +7,10 @@ import { Button } from "./ui/button";
 export default function BookshelfHeader({
   shelfCount,
   onShelfCountChange,
+  shelves,
+  onShelfWidthChange,
+  bookMap,
+  onShelfHeightChange,
   theme,
   onThemeChange,
   goodreadsBooks,
@@ -116,6 +120,10 @@ export default function BookshelfHeader({
           onThemeChange={onThemeChange}
           shelfCount={shelfCount}
           onShelfCountChange={onShelfCountChange}
+          shelves={shelves}
+          onShelfWidthChange={onShelfWidthChange}
+          bookMap={bookMap}
+          onShelfHeightChange={onShelfHeightChange}
           triggerClassName={actionClassName}
         />
         <SettingsButton actionClassName={actionClassName} />

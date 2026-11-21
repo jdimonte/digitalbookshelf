@@ -1,5 +1,6 @@
 export const DEFAULT_SHELF_HEIGHT = 240;
 export const MAX_SHELF_HEIGHT = 500;
+export const MAX_SHELF_WIDTH = 5000;
 export const SHELF_TOP_PADDING = 24;
 export const SHELF_BORDER_HEIGHT = 8;
 export const COVER_ORIENTATION_HEIGHT = 144;

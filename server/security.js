@@ -51,7 +51,7 @@ export function normalizeUserData(value) {
 
   const shelves = value.shelves ?? null;
   const stackTops = value.stackTops ?? {};
-  const shelfCount = value.shelfCount ?? 5;
+  const shelfCount = value.shelfCount ?? 3;
   const theme = value.theme ?? null;
   const goodreadsBooks = value.goodreadsBooks ?? [];
 

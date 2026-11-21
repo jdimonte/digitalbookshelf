@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import BookItem from "./BookItem";
 import BookSearchModal from "./BookSearchModal";
 import EmptySlot from "./EmptySlot";
@@ -21,6 +21,7 @@ export default function BookShelf({
   bookMap,
   draggedBook,
   theme,
+  onDisplayWidthChange,
   goodreadsBooks,
   onToggleOrientation,
   onDragStart,
@@ -31,17 +32,32 @@ export default function BookShelf({
   onAddBookToStack,
   onRemoveBook,
   onResizeShelf,
+  onResizeShelfWidth,
 }) {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [hoveredEmptyArea, setHoveredEmptyArea] = useState(null);
   const [dragOverTarget, setDragOverTarget] = useState(null);
   const [resizingShelf, setResizingShelf] = useState(null);
+  const [resizingShelfWidth, setResizingShelfWidth] = useState(null);
   // When a drop reflows the shelf, elements can shift under a stationary cursor,
   // triggering the browser's own hover/mouseenter on whatever now sits there
   // (the "+" button, rating badge, etc.) even though the user hasn't moved.
   // Suppressing pointer events until the next real mousemove blocks that.
   const [suppressHover, setSuppressHover] = useState(false);
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+  const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
+  const scaleRef = useRef(1);
+  const maxShelfHeight = Math.max(MAX_SHELF_HEIGHT, viewportHeight - 32);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setViewportWidth(window.innerWidth);
+      setViewportHeight(window.innerHeight);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     if (!suppressHover) return;
@@ -56,12 +72,12 @@ export default function BookShelf({
     const layout = getShelfSegmentLayout(
       items,
       bookMap,
-      shelfWidth,
+      getShelfWidthForShelf(shelfIndex),
       theme.dividerCount || 0,
     );
     const THRESHOLD = 8;
     const rect = e.currentTarget.getBoundingClientRect();
-    const cursorX = e.clientX - rect.left - 16; // subtract px-4 left padding
+    const cursorX = (e.clientX - rect.left) / scaleRef.current - 16;
 
     let closestId = null;
     let minDist = Infinity;
@@ -126,15 +142,46 @@ export default function BookShelf({
     setResizingShelf({ shelfIndex, startY: e.clientY, startHeight, minHeight });
   };
 
+  const handleResizeWidthMouseDown = (shelfIndex, startWidth, e) => {
+    e.preventDefault();
+    setResizingShelfWidth({
+      shelfIndex,
+      startX: e.clientX,
+      startWidth,
+      startScale: scaleRef.current,
+    });
+  };
+
+  useEffect(() => {
+    if (!resizingShelfWidth) return;
+    const { shelfIndex, startX, startWidth, startScale } = resizingShelfWidth;
+    document.body.style.cursor = "col-resize";
+
+    const handleMouseMove = (e) => {
+      const delta = (e.clientX - startX) / startScale;
+      onResizeShelfWidth(shelfIndex, startWidth + delta);
+    };
+    const handleMouseUp = () => setResizingShelfWidth(null);
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+    };
+  }, [resizingShelfWidth, onResizeShelfWidth]);
+
   useEffect(() => {
     if (!resizingShelf) return;
     const { shelfIndex, startY, startHeight, minHeight } = resizingShelf;
     document.body.style.cursor = "row-resize";
 
     const handleMouseMove = (e) => {
-      const delta = e.clientY - startY;
-      const newHeight = Math.min(MAX_SHELF_HEIGHT, Math.max(minHeight, startHeight + delta));
-      onResizeShelf(shelfIndex, newHeight);
+      const delta = (e.clientY - startY) / scaleRef.current;
+      const shelfMaxHeight = Math.max(maxShelfHeight, minHeight);
+      const newHeight = Math.min(shelfMaxHeight, Math.max(minHeight, startHeight + delta));
+      onResizeShelf(shelfIndex, newHeight, shelfMaxHeight);
     };
     const handleMouseUp = () => setResizingShelf(null);
 
@@ -145,7 +192,7 @@ export default function BookShelf({
       window.removeEventListener("mouseup", handleMouseUp);
       document.body.style.cursor = "";
     };
-  }, [resizingShelf, onResizeShelf]);
+  }, [resizingShelf, onResizeShelf, maxShelfHeight]);
 
   const handleEmptySlotClick = (
     shelfIndex,
@@ -183,42 +230,98 @@ export default function BookShelf({
     setSelectedPosition(null);
   };
 
+  const isSimpleLayout = theme.name === "bw";
   const bookcaseStyle = BOOKCASE_STYLES[theme.bookcaseStyle] || BOOKCASE_STYLES.modern;
-  const { src: bookcaseSrc, IMG_W, IMG_H, INNER_L, INNER_R, INNER_T, INNER_B } = bookcaseStyle;
+  const {
+    src: bookcaseSrc,
+    IMG_W,
+    IMG_H,
+    INNER_L,
+    INNER_R,
+    INNER_T,
+    INNER_B,
+  } = bookcaseStyle;
   const INNER_W = IMG_W - INNER_L - INNER_R;
-  const shelfWidth = theme.shelfWidth || 1200;
-  const shelfContentH = shelves.reduce(
-    (sum, shelf) => sum + (shelf.height || DEFAULT_SHELF_HEIGHT) + SHELF_BORDER_HEIGHT,
+  const shelfWidth = theme.shelfWidth || 850;
+  const getShelfWidthForShelf = (shelfIndex) =>
+    isSimpleLayout
+      ? shelves[shelfIndex]?.width || shelfWidth / Math.max(1, shelves.length)
+      : shelfWidth;
+  const simpleShelfWidth = shelves.reduce(
+    (sum, shelf, shelfIndex) => sum + getShelfWidthForShelf(shelfIndex),
     0,
   );
-  const cW = Math.round(shelfWidth * IMG_W / INNER_W);
-  const cH = Math.round(shelfContentH * IMG_H / (IMG_H - INNER_T - INNER_B));
-  const padL = Math.round(cW * INNER_L / IMG_W);
-  const padR = Math.round(cW * INNER_R / IMG_W);
-  const padT = Math.round(cH * INNER_T / IMG_H);
-  const padB = Math.round(cH * INNER_B / IMG_H);
+  const shelfContentH = shelves.reduce(
+    (sum, shelf) => sum + (shelf.height || DEFAULT_SHELF_HEIGHT),
+    0,
+  ) + Math.max(0, shelves.length - 1) * SHELF_BORDER_HEIGHT;
+  const simpleContentH = maxShelfHeight;
+  const cW = isSimpleLayout
+    ? simpleShelfWidth
+    : Math.round(shelfWidth * IMG_W / INNER_W);
+  const cH = isSimpleLayout
+    ? simpleContentH
+    : Math.round(shelfContentH * IMG_H / (IMG_H - INNER_T - INNER_B));
+  const padL = isSimpleLayout ? 0 : Math.round(cW * INNER_L / IMG_W);
+  const padR = isSimpleLayout ? 0 : Math.round(cW * INNER_R / IMG_W);
+  const padT = isSimpleLayout ? 0 : Math.round(cH * INNER_T / IMG_H);
+  const padB = isSimpleLayout ? 0 : Math.round(cH * INNER_B / IMG_H);
+  const frameHeight = Math.max(1, viewportHeight - 32);
+  const scale = isSimpleLayout
+    ? Math.min(1, frameHeight / cH)
+    : Math.min(
+        1,
+        Math.max(0.1, Math.min((viewportWidth - 32) / cW, frameHeight / cH)),
+      );
+
+  useEffect(() => {
+    scaleRef.current = scale;
+  }, [scale]);
+
+  useEffect(() => {
+    onDisplayWidthChange(
+      isSimpleLayout ? Math.min(cW * scale, viewportWidth - 32) : cW * scale,
+    );
+  }, [cW, scale, onDisplayWidthChange, isSimpleLayout, viewportWidth]);
 
   return (
     <>
       <div
         className="relative"
-        style={{ width: `${cW}px`, height: `${cH}px` }}
+        style={{
+          width: `${cW * scale}px`,
+          height: `${frameHeight}px`,
+          margin: isSimpleLayout ? "0 auto" : undefined,
+        }}
       >
         <div
-          aria-hidden="true"
-          className="absolute inset-0 pointer-events-none"
+          className={`absolute bottom-0 ${isSimpleLayout ? "left-0" : "left-1/2"}`}
           style={{
             width: `${cW}px`,
             height: `${cH}px`,
-            backgroundColor: theme.shelfColor,
-            WebkitMaskImage: `url(${bookcaseSrc})`,
-            maskImage: `url(${bookcaseSrc})`,
-            WebkitMaskSize: "100% 100%",
-            maskSize: "100% 100%",
-            WebkitMaskRepeat: "no-repeat",
-            maskRepeat: "no-repeat",
+            transform: isSimpleLayout
+              ? `scale(${scale})`
+              : `translateX(-50%) scale(${scale})`,
+            transformOrigin: isSimpleLayout ? "bottom left" : "bottom center",
           }}
-        />
+        >
+        {!isSimpleLayout && (
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              width: `${cW}px`,
+              height: `${cH}px`,
+              backgroundColor: theme.shelfColor,
+              WebkitMaskImage: `url(${bookcaseSrc})`,
+              maskImage: `url(${bookcaseSrc})`,
+              WebkitMaskSize: "100% 100%",
+              maskSize: "100% 100%",
+              WebkitMaskRepeat: "no-repeat",
+              maskRepeat: "no-repeat",
+            }}
+          />
+        )}
         <div
           className="relative"
           style={{
@@ -231,15 +334,21 @@ export default function BookShelf({
           <Card
             className="border-0 p-0 transition-colors duration-500 rounded-none relative"
             style={{
-              width: `${shelfWidth}px`,
+              width: `${isSimpleLayout ? cW : shelfWidth}px`,
+              height: isSimpleLayout ? `${simpleContentH}px` : undefined,
               borderColor: theme.shelfColor,
-              backgroundColor: theme.shelfColor,
+              backgroundColor: isSimpleLayout ? "transparent" : theme.shelfColor,
               overflow: "visible",
             }}
           >
             <CardContent
               className="p-0"
-              style={{ pointerEvents: suppressHover ? "none" : "auto" }}
+              style={{
+                pointerEvents: suppressHover ? "none" : "auto",
+                display: isSimpleLayout ? "flex" : undefined,
+                alignItems: isSimpleLayout ? "flex-end" : undefined,
+                height: isSimpleLayout ? "100%" : undefined,
+              }}
             >
               {shelves.map((shelf, shelfIndex) => {
                 const shelfHeight = shelf.height || DEFAULT_SHELF_HEIGHT;
@@ -248,13 +357,15 @@ export default function BookShelf({
                 <div
                   key={shelf.id || shelfIndex}
                   className="relative group/shelf"
+                  style={{ flexShrink: isSimpleLayout ? 0 : undefined }}
                 >
                   <div
                     className="flex items-end px-4 pt-6 relative transition-colors duration-300"
                     style={{
-                      width: `${shelfWidth}px`,
+                      width: `${getShelfWidthForShelf(shelfIndex)}px`,
                       height: `${shelfHeight}px`,
                       background: `linear-gradient(to bottom, ${theme.gradientTopColor || theme.shelfColor}, ${theme.gradientBottomColor || theme.shelfColor})`,
+                      boxShadow: isSimpleLayout ? `inset 0 -8px 0 ${theme.shelfColor}` : undefined,
                       overflow: "visible",
                     }}
                     onMouseMove={(e) => handleShelfMouseMove(shelfIndex, e)}
@@ -266,7 +377,7 @@ export default function BookShelf({
                       const segmentLayout = getShelfSegmentLayout(
                         items,
                         bookMap,
-                        shelfWidth,
+                        getShelfWidthForShelf(shelfIndex),
                         theme.dividerCount || 0,
                       );
                       const segElements = Array.from({ length: segCount }, () => []);
@@ -339,7 +450,7 @@ export default function BookShelf({
                           if (!canFitItemsInShelfSegments(
                             projected,
                             { ...bookMap, ...candidateMap },
-                            shelfWidth,
+                            getShelfWidthForShelf(shelfIndex),
                             theme.dividerCount || 0,
                           )) break;
                           maxBooks = count;
@@ -568,7 +679,9 @@ export default function BookShelf({
                               }}
                               onDrop={(e) => {
                                 const rect = e.currentTarget.getBoundingClientRect();
-                                const slotOffset = Math.floor(Math.max(0, e.clientX - rect.left) / 60);
+                                const slotOffset = Math.floor(
+                                  Math.max(0, e.clientX - rect.left) / (60 * scale),
+                                );
                                 onDrop(shelfIndex, null, "after", null, slotOffset, s);
                               }}
                             >
@@ -628,7 +741,26 @@ export default function BookShelf({
                       }).flat();
                     })()}
                   </div>
-                  {shelfIndex < shelves.length - 1 && (
+                  {isSimpleLayout ? (
+                    <>
+                      <div
+                        className="absolute inset-x-0 bottom-[-4px] z-30 h-3 cursor-row-resize"
+                        onMouseDown={(e) =>
+                          handleResizeMouseDown(shelfIndex, shelfHeight, shelfMinHeight, e)
+                        }
+                      />
+                      <div
+                        className="absolute inset-y-0 right-[-4px] z-30 w-3 cursor-col-resize"
+                        onMouseDown={(e) =>
+                          handleResizeWidthMouseDown(
+                            shelfIndex,
+                            getShelfWidthForShelf(shelfIndex),
+                            e,
+                          )
+                        }
+                      />
+                    </>
+                  ) : shelfIndex < shelves.length - 1 && (
                     <div className="relative" style={{ height: `${SHELF_BORDER_HEIGHT}px` }}>
                       <div
                         className="absolute inset-x-0 top-0 h-[2px]"
@@ -648,6 +780,7 @@ export default function BookShelf({
               })}
             </CardContent>
           </Card>
+        </div>
         </div>
       </div>
 

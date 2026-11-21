@@ -1,10 +1,17 @@
 import { ChevronDown, ChevronUp, Palette, Settings } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Label } from "./ui/label";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
+import {
+  DEFAULT_SHELF_HEIGHT,
+  getShelfMinHeight,
+  MAX_SHELF_HEIGHT,
+  MAX_SHELF_WIDTH,
+  SHELF_BORDER_HEIGHT,
+} from "../utils/shelfItems";
 import { DEFAULT_SPINE_COLORS } from "../utils/spineColors";
 import { BOOKCASE_STYLES } from "../utils/bookcaseStyles";
 
@@ -47,9 +54,64 @@ export default function ThemeCustomizer({
   onThemeChange,
   shelfCount,
   onShelfCountChange,
+  shelves,
+  onShelfWidthChange,
+  bookMap,
+  onShelfHeightChange,
   triggerClassName,
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [viewport, setViewport] = useState(() => ({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  }));
+  useEffect(() => {
+    const handleResize = () =>
+      setViewport({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+  const isSimpleLayout = theme.name === "bw";
+  const bookshelfCount = Math.max(2, shelfCount);
+  const totalShelfWidth = theme.shelfWidth || 850;
+  const defaultBookshelfWidth = totalShelfWidth / bookshelfCount;
+  const maxShelfHeight = Math.max(MAX_SHELF_HEIGHT, viewport.height - 32);
+  const maxBookshelfWidth = Math.min(
+    MAX_SHELF_WIDTH,
+    Math.max(1200, viewport.width - 32),
+  );
+  const bookcaseStyle =
+    BOOKCASE_STYLES[theme.bookcaseStyle] || BOOKCASE_STYLES.modern;
+  const innerWidth =
+    bookcaseStyle.IMG_W - bookcaseStyle.INNER_L - bookcaseStyle.INNER_R;
+  const contentHeight =
+    shelves.reduce(
+      (sum, shelf) => sum + (shelf.height || DEFAULT_SHELF_HEIGHT),
+      0,
+    ) + Math.max(0, shelves.length - 1) * SHELF_BORDER_HEIGHT;
+  const frameHeight = Math.round(
+    contentHeight *
+      (bookcaseStyle.IMG_H /
+        (bookcaseStyle.IMG_H - bookcaseStyle.INNER_T - bookcaseStyle.INNER_B)),
+  );
+  const heightScale = Math.min(
+    1,
+    Math.max(0.01, (viewport.height - 32) / Math.max(1, frameHeight)),
+  );
+  const maxShelfWidth = Math.min(
+    MAX_SHELF_WIDTH,
+    Math.max(
+      1200,
+      Math.ceil(
+        (viewport.width - 32) /
+          (heightScale * (bookcaseStyle.IMG_W / innerWidth)),
+      ),
+    ),
+  );
+  const combinedBookshelfWidth = shelves.reduce(
+    (sum, shelf) => sum + (shelf.width || defaultBookshelfWidth),
+    0,
+  );
 
   const presetThemes = {
     vintage: {
@@ -60,8 +122,8 @@ export default function ThemeCustomizer({
       lighting: "warm",
       decorations: true,
       perspective3D: false,
-      shelfWidth: 1200,
-      dividerCount: 0,
+      shelfWidth: 850,
+      dividerCount: 1,
       gradientTopColor: "#8B5A2B",
       gradientBottomColor: "#654321",
       spineColors: DEFAULT_SPINE_COLORS,
@@ -74,7 +136,7 @@ export default function ThemeCustomizer({
       lighting: "cool",
       decorations: false,
       perspective3D: true,
-      shelfWidth: 1200,
+      shelfWidth: 850,
       dividerCount: 0,
       gradientTopColor: "#34495e",
       gradientBottomColor: "#2c3e50",
@@ -88,7 +150,7 @@ export default function ThemeCustomizer({
       lighting: "bw",
       decorations: false,
       perspective3D: false,
-      shelfWidth: 1200,
+      shelfWidth: 850,
       dividerCount: 0,
       gradientTopColor: "#ffffff",
       gradientBottomColor: "#ffffff",
@@ -297,23 +359,70 @@ export default function ThemeCustomizer({
             </div>
           </div>
 
-          {/* Shelf Width Control */}
-          <Stepper
-            label="Shelf Width"
-            unit="px"
-            value={theme.shelfWidth || 1200}
-            min={800}
-            max={1600}
-            step={50}
-            onChange={(value) => onThemeChange({ ...theme, shelfWidth: value })}
-          />
+          {isSimpleLayout ? (
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Bookshelf Sizes</Label>
+              <div className="space-y-3">
+                {shelves.map((shelf, index) => {
+                  const minHeight = getShelfMinHeight(
+                    shelf.items || [],
+                    bookMap,
+                  );
+                  const shelfMaxHeight = Math.max(
+                    minHeight,
+                    maxShelfHeight,
+                  );
+                  return (
+                    <div key={shelf.id || index} className="space-y-3">
+                      <Stepper
+                        label={`Bookshelf ${index + 1} width`}
+                        unit="px"
+                        value={Math.round(shelf.width || defaultBookshelfWidth)}
+                        min={120}
+                        max={maxBookshelfWidth}
+                        step={10}
+                        onChange={(value) => onShelfWidthChange(index, value)}
+                      />
+                      <Stepper
+                        label={`Bookshelf ${index + 1} height`}
+                        unit="px"
+                        value={Math.round(shelf.height || DEFAULT_SHELF_HEIGHT)}
+                        min={minHeight}
+                        max={shelfMaxHeight}
+                        step={10}
+                        onChange={(value) =>
+                          onShelfHeightChange(index, value, shelfMaxHeight)
+                        }
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Combined width: {Math.round(combinedBookshelfWidth)}px
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Drag a bookshelf&apos;s bottom or right edge to resize it.
+              </p>
+            </div>
+          ) : (
+            <Stepper
+              label="Shelf Width"
+              unit="px"
+              value={totalShelfWidth}
+              min={500}
+              max={maxShelfWidth}
+              step={50}
+              onChange={(value) => onThemeChange({ ...theme, shelfWidth: value })}
+            />
+          )}
 
           {/* Number of Shelves Control */}
           <Stepper
-            label="Number of Shelves"
+            label={theme.name === "bw" ? "Number of Bookshelves" : "Number of Shelves"}
             value={shelfCount}
-            min={1}
-            max={10}
+            min={2}
+            max={5}
             step={1}
             onChange={onShelfCountChange}
           />
