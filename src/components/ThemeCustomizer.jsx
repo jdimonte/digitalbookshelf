@@ -145,16 +145,16 @@ export default function ThemeCustomizer({
     bw: {
       name: "bw",
       displayName: "2D Black and White",
-      shelfColor: "#e0e0e0",
-      backgroundColor: "#ffffff",
+      shelfColor: "#111111",
+      backgroundColor: "#f7f7f2",
       lighting: "bw",
       decorations: false,
       perspective3D: false,
       shelfWidth: 850,
       dividerCount: 0,
       gradientTopColor: "#ffffff",
-      gradientBottomColor: "#ffffff",
-      spineColors: DEFAULT_SPINE_COLORS,
+      gradientBottomColor: "#ececec",
+      spineColors: ["#ffffff", "#dedede", "#111111", "#777777", "#b8b8b8"],
     },
   };
 

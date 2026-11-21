@@ -298,50 +298,28 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
             setBookMap(mergedBookMap);
           }
         } else {
-          const response = await fetch(
-            "https://openlibrary.org/search.json?q=subject:fiction&limit=25&fields=key,title,author_name,cover_i,number_of_pages_median,first_publish_year",
-          );
-          if (!response.ok) throw new Error("Could not load the starter books.");
-          const data = await response.json();
-
-          const newBookMap = {};
-          const allBooks = data.docs
-            .filter((doc) => doc.cover_i)
-            .slice(0, 25)
-            .map((doc) => {
-              const seed = doc.cover_i || 0;
-              const deterministicHeight =
-                140 + (((seed * 9301 + 49297) % 233280) / 233280) * 50;
-              const bookRecord = {
-                id: doc.key,
-                title: doc.title,
-                coverId: doc.cover_i,
-                author: doc.author_name?.[0] || "Unknown Author",
-                pages:
-                  doc.number_of_pages_median ||
-                  doc.pages ||
-                  doc.number_of_pages ||
-                  "?",
-                height: deterministicHeight,
-              };
-              newBookMap[doc.key] = bookRecord;
-              return bookRecord;
-            });
-
-          const newShelves = [];
-          for (let i = 0; i < 3; i++) {
-            const shelfBooks = allBooks.slice(i * 9, i * 9 + 9);
-            newShelves.push({
-              id: `shelf-${i}`,
+          const newBookMap = {
+            "shelf-test-book": {
+              id: "shelf-test-book",
+              title: "Shelf Test",
+              pages: 300,
+              height: 180,
+            },
+          };
+          const newShelves = [
+            {
+              id: "shelf-0",
               height: DEFAULT_SHELF_HEIGHT,
-              items: shelfBooks.map((book) => ({
+              items: [{
                 id: makeItemId(),
                 type: "book",
-                bookId: book.id,
+                bookId: "shelf-test-book",
                 orientation: "vertical",
-              })),
-            });
-          }
+              }],
+            },
+            { id: "shelf-1", height: DEFAULT_SHELF_HEIGHT, items: [] },
+            { id: "shelf-2", height: DEFAULT_SHELF_HEIGHT, items: [] },
+          ];
 
           if (!cancelled) {
             setShelves(assignShelfSections(

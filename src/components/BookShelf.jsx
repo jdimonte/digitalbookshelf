@@ -247,15 +247,17 @@ export default function BookShelf({
     isSimpleLayout
       ? shelves[shelfIndex]?.width || shelfWidth / Math.max(1, shelves.length)
       : shelfWidth;
-  const simpleShelfWidth = shelves.reduce(
-    (sum, shelf, shelfIndex) => sum + getShelfWidthForShelf(shelfIndex),
-    0,
+  const simpleShelfWidth = Math.max(
+    1,
+    ...shelves.map((shelf, shelfIndex) =>
+      getShelfWidthForShelf(shelfIndex),
+    ),
   );
   const shelfContentH = shelves.reduce(
     (sum, shelf) => sum + (shelf.height || DEFAULT_SHELF_HEIGHT),
     0,
   ) + Math.max(0, shelves.length - 1) * SHELF_BORDER_HEIGHT;
-  const simpleContentH = maxShelfHeight;
+  const simpleContentH = shelfContentH;
   const cW = isSimpleLayout
     ? simpleShelfWidth
     : Math.round(shelfWidth * IMG_W / INNER_W);
@@ -346,7 +348,8 @@ export default function BookShelf({
               style={{
                 pointerEvents: suppressHover ? "none" : "auto",
                 display: isSimpleLayout ? "flex" : undefined,
-                alignItems: isSimpleLayout ? "flex-end" : undefined,
+                flexDirection: isSimpleLayout ? "column" : undefined,
+                alignItems: isSimpleLayout ? "stretch" : undefined,
                 height: isSimpleLayout ? "100%" : undefined,
               }}
             >
@@ -365,7 +368,12 @@ export default function BookShelf({
                       width: `${getShelfWidthForShelf(shelfIndex)}px`,
                       height: `${shelfHeight}px`,
                       background: `linear-gradient(to bottom, ${theme.gradientTopColor || theme.shelfColor}, ${theme.gradientBottomColor || theme.shelfColor})`,
-                      boxShadow: isSimpleLayout ? `inset 0 -8px 0 ${theme.shelfColor}` : undefined,
+                      borderTop: isSimpleLayout ? "2px solid #111111" : undefined,
+                      borderLeft: isSimpleLayout ? "2px solid #111111" : undefined,
+                      borderRight: isSimpleLayout ? "2px solid #111111" : undefined,
+                      boxShadow: isSimpleLayout
+                        ? "inset 0 -10px 0 #111111"
+                        : undefined,
                       overflow: "visible",
                     }}
                     onMouseMove={(e) => handleShelfMouseMove(shelfIndex, e)}

@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Star } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 import { playHoverSound, playGrabSound, safePlay } from "../utils/sounds";
-import { getSpineColor } from "../utils/spineColors";
+import { getMonochromeSpineStyle, getSpineColor } from "../utils/spineColors";
 import { useFitFontSize } from "../hooks/useFitFontSize";
 
 export default function BookItem({
@@ -144,6 +144,14 @@ export default function BookItem({
       )
     : null;
 
+  const monochromeSpine =
+    theme?.lighting === "bw"
+      ? getMonochromeSpineStyle(book.coverId)
+      : null;
+  const textColor = theme?.lighting === "bw"
+    ? monochromeSpine.foreground
+    : "#ffffff";
+
   // Drop handler: insert before (left half) or after (right half)
   const handleBookDrop = (e) => {
     if (!onDrop) return;
@@ -185,12 +193,12 @@ export default function BookItem({
           height: `${book.height}px`,
           backgroundColor:
             theme?.lighting === "bw"
-              ? "#ffffff"
+              ? monochromeSpine.background
               : getSpineColor(theme, book.coverId),
-          border: theme?.lighting === "bw" ? "1.5px solid #333333" : undefined,
+          border: theme?.lighting === "bw" ? "1.5px solid #111111" : undefined,
           boxShadow:
             theme?.lighting === "bw"
-              ? "1px 1px 0 #333333"
+              ? "2px 0 0 #111111"
               : theme?.perspective3D
                 ? "0 8px 16px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1)"
                 : "0 4px 8px rgba(0,0,0,0.2)",
@@ -208,13 +216,14 @@ export default function BookItem({
             overflow-hidden
             text-ellipsis
             shrink-0
-            ${theme?.lighting === "bw" ? "text-black" : "text-white"}
+            ${theme?.lighting === "bw" ? "" : "text-white"}
           `}
           style={{
             fontSize: `${verticalFontSize}px`,
             lineHeight: 1,
             letterSpacing: "normal",
             maxWidth: `${book.height - VERTICAL_HEIGHT_MARGIN}px`,
+            color: textColor,
           }}
         >
           {book.title}
@@ -257,12 +266,12 @@ export default function BookItem({
           width: `160px`,
           backgroundColor:
             theme?.lighting === "bw"
-              ? "#ffffff"
+              ? monochromeSpine.background
               : getSpineColor(theme, book.coverId),
-          border: theme?.lighting === "bw" ? "1.5px solid #333333" : undefined,
+          border: theme?.lighting === "bw" ? "1.5px solid #111111" : undefined,
           boxShadow:
             theme?.lighting === "bw"
-              ? "1px 1px 0 #333333"
+              ? "2px 0 0 #111111"
               : theme?.perspective3D
                 ? "0 4px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)"
                 : "0 2px 4px rgba(0,0,0,0.2)",
@@ -271,11 +280,12 @@ export default function BookItem({
         {ratingBadge}
         <span
           ref={horizontalTextRef}
-          className={`font-medium leading-tight text-center whitespace-nowrap overflow-hidden text-ellipsis ${theme?.lighting === "bw" ? "text-black" : "text-white"}`}
+          className="font-medium leading-tight text-center whitespace-nowrap overflow-hidden text-ellipsis"
           style={{
             fontSize: `${horizontalFontSize}px`,
             letterSpacing: "normal",
             maxWidth: `${HORIZONTAL_INNER_WIDTH}px`,
+            color: textColor,
           }}
         >
           {book.title}
@@ -316,7 +326,7 @@ export default function BookItem({
           width: `96px`,
           height: `144px`,
           boxShadow: theme?.lighting === "bw"
-            ? "1px 1px 0 #333333"
+            ? "3px 3px 0 #111111"
             : theme?.perspective3D
               ? "0 12px 24px rgba(0,0,0,0.4), 0 4px 8px rgba(0,0,0,0.2)"
               : "0 6px 12px rgba(0,0,0,0.3)",
@@ -324,15 +334,18 @@ export default function BookItem({
             ? "rotateY(-5deg) rotateX(2deg)"
             : "none",
           ...(theme?.lighting === "bw" && {
-            backgroundColor: "#ffffff",
-            border: "1.5px solid #333333",
+            backgroundColor: monochromeSpine.background,
+            border: "1.5px solid #111111",
           }),
         }}
       >
         <CardContent className="p-0 h-full">
           {theme?.lighting === "bw" ? (
             <div className="w-full h-full flex items-center justify-center p-2">
-              <span className="text-[9px] font-medium text-black text-center leading-tight break-words">
+              <span
+                className="text-[9px] font-medium text-center leading-tight break-words"
+                style={{ color: monochromeSpine.foreground }}
+              >
                 {book.title}
               </span>
             </div>
