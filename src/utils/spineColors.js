@@ -1,12 +1,12 @@
 // Default palette used when a theme has no custom spineColors set
 export const DEFAULT_SPINE_COLORS = [
-  "#7B3F00",
-  "#8B0000",
-  "#1B4D3E",
-  "#2C3E50",
-  "#4A148C",
-  "#5D4037",
-  "#37474F",
+  "#db8faf",
+  "#d44040",
+  "#32b38c",
+  "#0e457c",
+  "#5305b3",
+  "#d97759",
+  "#6596ae",
 ];
 
 export function getSpineColor(theme, coverId) {

@@ -230,7 +230,7 @@ export default function BookShelf({
     setSelectedPosition(null);
   };
 
-  const isSimpleLayout = theme.name === "bw";
+  const isSimpleLayout = false;
   const bookcaseStyle = BOOKCASE_STYLES[theme.bookcaseStyle] || BOOKCASE_STYLES.modern;
   const {
     src: bookcaseSrc,

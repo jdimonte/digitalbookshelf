@@ -298,14 +298,40 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
             setBookMap(mergedBookMap);
           }
         } else {
-          const newBookMap = {
-            "shelf-test-book": {
-              id: "shelf-test-book",
-              title: "Shelf Test",
-              pages: 300,
-              height: 180,
-            },
-          };
+          const fields =
+            "key,title,author_name,cover_i,number_of_pages_median,first_publish_year";
+          const responses = await Promise.all([
+            fetch(`https://openlibrary.org/search.json?q=isbn:9780141439600&limit=1&fields=${fields}`),
+            fetch(`https://openlibrary.org/search.json?q=isbn:9780743273565&limit=1&fields=${fields}`),
+            fetch(`https://openlibrary.org/search.json?q=isbn:9780061120084&limit=1&fields=${fields}`),
+            fetch(`https://openlibrary.org/search.json?q=isbn:9780679783268&limit=1&fields=${fields}`),
+          ]);
+          if (responses.some((response) => !response.ok)) {
+            throw new Error("Could not load the starter books.");
+          }
+          const results = await Promise.all(responses.map((response) => response.json()));
+          const books = results
+            .map((result) => result.docs?.find((doc) => doc.title))
+            .filter(Boolean);
+          if (books.length < 4) throw new Error("Could not load four starter books.");
+
+          const newBookMap = {};
+          books.forEach((doc, index) => {
+            const seed = doc.cover_i || (index + 1) * 100;
+            const height =
+              140 + (((seed * 9301 + 49297) % 233280) / 233280) * 50;
+            const bookId = doc.key;
+            newBookMap[bookId] = {
+              id: bookId,
+              title: doc.title,
+              coverId: doc.cover_i,
+              author: doc.author_name?.[0] || "Unknown Author",
+              pages:
+                doc.number_of_pages_median ||
+                "?",
+              height,
+            };
+          });
           const newShelves = [
             {
               id: "shelf-0",
@@ -313,12 +339,32 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
               items: [{
                 id: makeItemId(),
                 type: "book",
-                bookId: "shelf-test-book",
+                bookId: books[0].key,
                 orientation: "vertical",
+                sectionIndex: 0,
               }],
             },
-            { id: "shelf-1", height: DEFAULT_SHELF_HEIGHT, items: [] },
-            { id: "shelf-2", height: DEFAULT_SHELF_HEIGHT, items: [] },
+            {
+              id: "shelf-1",
+              height: DEFAULT_SHELF_HEIGHT,
+              items: [{
+                id: makeItemId(),
+                type: "horizontal-stack",
+                bookIds: [books[1].key, books[3].key],
+                sectionIndex: 1,
+              }],
+            },
+            {
+              id: "shelf-2",
+              height: DEFAULT_SHELF_HEIGHT,
+              items: [{
+                id: makeItemId(),
+                type: "book",
+                bookId: books[2].key,
+                orientation: "cover",
+                sectionIndex: 0,
+              }],
+            },
           ];
 
           if (!cancelled) {
@@ -385,29 +431,14 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
   useEffect(() => {
     if (shelves.length === 0) return;
     setShelves((prev) => {
-      const defaultWidth =
-        (theme.shelfWidth || DEFAULT_THEME.shelfWidth) /
-        Math.max(shelfCount, prev.length, 1);
       let next = prev;
-      if (theme.name === "bw" && prev.some((shelf) => !Number.isFinite(shelf.width))) {
-        next = prev.map((shelf) =>
-          Number.isFinite(shelf.width) ? shelf : { ...shelf, width: defaultWidth },
-        );
-      }
       if (next.length === shelfCount && next === prev) return prev;
       next = [...next];
       while (next.length < shelfCount) {
-        const existingWidths = next
-          .map((shelf) => shelf.width)
-          .filter(Number.isFinite);
-        const width = existingWidths.length
-          ? existingWidths.reduce((sum, value) => sum + value, 0) / existingWidths.length
-          : defaultWidth;
         next.push({
           id: makeItemId(),
           items: [],
           height: DEFAULT_SHELF_HEIGHT,
-          ...(theme.name === "bw" ? { width } : {}),
         });
       }
       if (next.length > shelfCount) next.splice(shelfCount);
@@ -416,10 +447,7 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
   }, [shelfCount, shelves.length, theme.name, theme.shelfWidth]);
 
   const getShelfContentWidth = (shelfIndex) => {
-    const totalWidth = theme.shelfWidth || DEFAULT_THEME.shelfWidth;
-    return theme.name === "bw"
-      ? shelves[shelfIndex]?.width || totalWidth / Math.max(1, shelves.length)
-      : totalWidth;
+    return theme.shelfWidth || DEFAULT_THEME.shelfWidth;
   };
 
   const handleDragStart = (shelfIndex, itemIndex, stackBookId = null) => {
@@ -975,7 +1003,7 @@ function BookshelfApp({ user, onOpenAuth, onLogout }) {
           <LoadingState />
         ) : (
           <div
-            className={`perspective-1000 ${theme.name === "bw" ? "w-full min-w-0 overflow-x-auto" : "flex justify-center"}`}
+            className="perspective-1000 flex justify-center"
             style={{
               perspective: theme.perspective3D ? "1000px" : "none",
               transformStyle: "preserve-3d",

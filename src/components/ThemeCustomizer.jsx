@@ -71,7 +71,7 @@ export default function ThemeCustomizer({
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
-  const isSimpleLayout = theme.name === "bw";
+  const isSimpleLayout = false;
   const bookshelfCount = Math.max(2, shelfCount);
   const totalShelfWidth = theme.shelfWidth || 850;
   const defaultBookshelfWidth = totalShelfWidth / bookshelfCount;
@@ -145,7 +145,7 @@ export default function ThemeCustomizer({
     bw: {
       name: "bw",
       displayName: "2D Black and White",
-      shelfColor: "#111111",
+      shelfColor: "#b5b5b5",
       backgroundColor: "#f7f7f2",
       lighting: "bw",
       decorations: false,
@@ -419,7 +419,7 @@ export default function ThemeCustomizer({
 
           {/* Number of Shelves Control */}
           <Stepper
-            label={theme.name === "bw" ? "Number of Bookshelves" : "Number of Shelves"}
+            label="Number of Shelves"
             value={shelfCount}
             min={2}
             max={5}
